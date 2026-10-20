@@ -1,150 +1,118 @@
-# Infraestructura WebAR con MindAR + Three.js
+# Experiencia WebAR - Muestra de Micro-Racismos
+## TED 2 - GRUPO 68
 
-Infraestructura base estática y modular para experiencias de Realidad Aumentada basada en imágenes (**Image Tracking WebAR**) directamente desde el navegador móvil, sin necesidad de instalar aplicaciones.
+Experiencia interactiva de Realidad Aumentada sobre navegador móvil (**Image Tracking WebAR**) desarrollada con **MindAR** y **Three.js**, sin necesidad de instalar aplicaciones nativas.
+
+---
+
+## 🎨 Pantalla de Inicio y Diseño Visual
+
+- **Fondo Institucional**: Ilustración orgánica en tonos lavanda y violeta (`assets/images/fondo.png`).
+- **Botón Superior ("Volver al inicio")**: Botón rectangular en color temático institucional (`#9999CC` / CMYK `C:48.97 M:42.72 Y:0 K:0`) que enlaza directamente al sitio principal del proyecto en Wix: [https://mgalibnz.wixstudio.com/ted-2-grupo68](https://mgalibnz.wixstudio.com/ted-2-grupo68).
+- **Título**: EXPERIENCIA DE REALIDAD AUMENTADA.
+- **Subtítulo**: Muestra de Micro-Racismos.
+- **Botón de Acción**: Botón rectangular "INICIAR EXPERIENCIA".
+- **Indicador de Tracking Superior**: Indicador discreto que comunica exclusivamente el estado del reconocimiento físico:
+  - 🟡 *Buscando imagen...*
+  - 🟢 *Imagen detectada*
+- **Finalización de la Experiencia**: Al concluir la animación de las 3 frases, el botón inferior se actualiza automáticamente a **"VOLVER HACIA ATRÁS"** para que el usuario pueda regresar a la pantalla inicial en cualquier momento.
+
+---
+
+## 🎬 Flujo de la Experiencia en 2 Partes
+
+1. **Parte 1 (Puerta 3D)**:
+   - Al reconocer el desplegable físico (`targets.mind`), emerge el modelo `puerta-3d.glb` centrado verticalmente.
+   - Se reproducen sus animaciones de apertura y textos (~5.1s).
+   - Realiza una transición suave de desvanecimiento (*Fade Out* de 0.8s).
+2. **Parte 2 (Frases y Palabras 3D)**:
+   - Aparece secuencialmente cada modelo de texto: `palabras1.glb`, `palabras2.glb` y `palabras3.glb`.
+   - Escala calibrada (`TEXT_SCALE = 0.04`) para legibilidad óptima en celulares.
+   - Entre cada frase hay una pausa de lectura ("un toquesin") y transiciones de *Fade In* y *Fade Out*.
+   - Iluminación frontal y propiedad emisiva optimizada para garantizar colores vivos (rojo y azul) sobre cualquier iluminación ambiental.
+
+---
+
+## 💡 Cómo resaltar textos en 3D (Rebordes / Outlines)
+
+Para que los textos resalten al máximo sobre la cámara del celular existen dos caminos complementarios:
+
+### 1. Optimización en Código (Ya implementada en Three.js)
+- **Emissive Boost**: Se inyecta un 25% de componente emisivo a los materiales de los textos y se añade una luz frontal directa (`frontLight`), evitando que las letras queden oscuras o apagadas frente a la cámara.
+
+### 2. Reborde tipo Cómic / Toon Outline (En Blender antes de exportar)
+Si querés que las letras tengan un contorno negro nítido 3D:
+1. En **Blender**, seleccioná la malla del texto.
+2. Agregá un modificador **Solidify**.
+3. En las opciones del modificador:
+   - **Mode**: Simple
+   - **Thickness**: un valor negativo pequeño (ej. `-0.015 m`)
+   - **Normals**: marcá la casilla **Flip Normals**.
+   - **Materials**: poné **Material Offset = 1**.
+4. En la pestaña de Materiales del objeto, agregá un segundo slot de material con color Negro puro (`#000000`) y Roughness en 1.0.
+5. Exportá el `.glb`. El contorno se calculará automáticamente en tiempo real sin perder rendimiento.
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```text
-/prueba-mindar (o /webar-test)
+TED2-GRUPO68-TP-FASE-2/
+├── index.html                  # Estructura HTML con pantalla de inicio y visor AR
+├── README.md                   # Documentación técnica y guía de despliegue
+├── iniciar.bat                 # Script de prueba local en Windows
+├── server.py                   # Servidor HTTP local con desactivación de caché
 │
-├── index.html               # Estructura HTML, Import Maps de Three.js y MindAR
-├── README.md                # Documentación de ejecución, despliegue y arquitectura
+├── .github/
+│   └── workflows/
+│       └── deploy.yml          # GitHub Actions para despliegue automático en GitHub Pages
 │
 ├── css/
-│   └── style.css            # Estilos responsivos, viewport móvil y control de capas
+│   └── style.css               # Diseño visual responsivo, botones rectangulares y fondo
 │
 ├── js/
-│   └── app.js               # Lógica modular de Three.js, MindAR y ciclo de vida
+│   └── app.js                  # Lógica de Three.js, MindAR, secuencia en 2 fases y tracking
 │
 ├── targets/
-│   └── target.mind          # Archivo binario compilado de reconocimiento de imagen
+│   ├── targets.mind            # Archivo binario compilado del desplegable (horizontal)
+│   └── target.mind             # Alias sincronizado para compatibilidad
 │
 └── assets/
-    ├── models/
-    │   ├── puerta-3d.glb    # Parte 1: Puerta 3D con apertura animada y textos
-    │   ├── palabras1.glb    # Parte 2: Primer modelo 3D de palabras animadas
-    │   ├── palabras2.glb    # Parte 2: Segundo modelo 3D de palabras animadas
-    │   └── palabras3.glb    # Parte 2: Tercer modelo 3D de palabras animadas
-    ├── textures/            # Reservado para mapas de texturas e imágenes
-    └── audio/               # Reservado para efectos sonoros o pistas de audio
+    ├── images/
+    │   └── fondo.png           # Fondo ilustrado de la pantalla de bienvenida
+    └── models/
+        ├── puerta-3d.glb       # Parte 1: Puerta 3D animada
+        ├── palabras1.glb       # Parte 2: Frase 1 animada
+        ├── palabras2.glb       # Parte 2: Frase 2 animada
+        └── palabras3.glb       # Parte 2: Frase 3 animada
 ```
 
 ---
 
-## 🎯 Ubicación del Archivo Target (`.mind`)
+## 🌐 Despliegue en GitHub Pages (HTTPS Automático)
 
-El archivo compilado de reconocimiento de imagen debe ubicarse obligatoriamente en:
+El proyecto incluye el workflow oficial de **GitHub Actions** (`.github/workflows/deploy.yml`) para publicar la WebAR de forma 100% estática y con HTTPS activo (obligatorio para la cámara del celular).
 
-```text
-/targets/target.mind
-```
-
-> **Nota:** La aplicación ya se encuentra configurada para leer `./targets/target.mind` con el anchor en el índice `0` (`addAnchor(0)`).
-
----
-
-## 🚀 Cómo Ejecutar el Proyecto Localmente
-
-Los navegadores bloquean el acceso a la cámara mediante el protocolo `file://`. Por este motivo, el proyecto debe servirse a través de un servidor web local:
-
-### Opción Rápida en Windows: Archivo `.bat`
-Podés hacer doble clic en `iniciar.bat` (o ejecutarlo en la consola).
-- Presioná **`Y`** para iniciar el servidor y abrir automáticamente el navegador en `http://localhost:8000`.
-- Mientras esté corriendo, presioná **`N`** para detener el servidor y cerrarlo.
+### Pasos para activar GitHub Pages en el repositorio:
+1. Entrá a tu repositorio en GitHub: [https://github.com/CarlosHerrera2004/TED2-GRUPO68-TP-FASE-2](https://github.com/CarlosHerrera2004/TED2-GRUPO68-TP-FASE-2).
+2. Hacé clic en la pestaña **Settings** (Configuración) arriba a la derecha.
+3. En el menú lateral izquierdo, seleccioná **Pages**.
+4. En la sección **Build and deployment**:
+   - **Opción A (Recomendada con GitHub Actions)**: En *Source*, seleccioná **GitHub Actions**. El archivo `.github/workflows/deploy.yml` compilará y publicará el sitio automáticamente en cada push.
+   - **Opción B (Directa de rama)**: En *Source*, seleccioná **Deploy from a branch**, elegí la rama `main` y la carpeta `/(root)`.
+5. En pocos segundos, GitHub generará tu enlace público:
+   ```text
+   https://carlosherrera2004.github.io/TED2-GRUPO68-TP-FASE-2/
+   ```
+   ¡Ya podés abrir ese enlace desde cualquier celular con Chrome o Safari para escanear el desplegable físico!
 
 ---
 
-### Opción 1: Con Python (Manual)
-Abrí una terminal en la carpeta del proyecto y ejecutá:
-```bash
-# Python 3
-python -m http.server 8000
-```
-Luego abrí en tu navegador:
-```text
-http://localhost:8000
-```
+## 💻 Pruebas Locales (Windows)
 
-### Opción 2: Con Node.js (`serve`)
-```bash
-npx serve .
-```
-
-### Opción 3: Con la extensión Live Server de VS Code
-Hacé clic derecho sobre `index.html` y seleccioná **"Open with Live Server"**.
-
----
-
-## 📱 Importante: Pruebas desde el Celular y Requisito de HTTPS
-
-Por especificación estricta de seguridad web (**WebRTC / `getUserMedia`**):
-
-1. **`localhost` en la computadora:** Permite acceder a la cámara sin HTTPS para pruebas en tu entorno de desarrollo.
-2. **Acceso desde el celular en red local (`http://192.168.x.x:8000`):** Los navegadores móviles (**Chrome en Android y Safari en iOS**) **bloquean la cámara si el sitio no cuenta con HTTPS**.
-
-### Cómo probarlo en el celular durante el desarrollo:
-
-#### Alternativa A: Usar un túnel HTTPS temporal (La más rápida y cómoda)
-Podés exponer tu servidor local mediante herramientas gratuitas como:
-- **Cloudflare Quick Tunnels (sin registro):**
-  ```bash
-  npx cloudflared tunnel --url http://localhost:8000
-  ```
-- **ngrok:**
-  ```bash
-  npx ngrok http 8000
-  ```
-Ambas herramientas te proporcionan una URL pública con **`https://`** que podés abrir directamente en Chrome (Android) o Safari (iPhone).
-
-#### Alternativa B: Habilitar el flag en Chrome para Android
-Si ingresás por IP local (`http://192.168.1.X:8000`), podés ingresar en Chrome de tu teléfono a:
-```text
-chrome://flags/#unsafely-treat-insecure-origin-as-secure
-```
-Añadir `http://192.168.1.X:8000`, marcarlo como **Enabled** y reiniciar Chrome.
-
----
-
-## 🌐 Publicación en Producción (100% Estático)
-
-El proyecto es totalmente estático (HTML, CSS y JS puro). Puede desplegarse en cualquier servicio de hosting gratuito sin necesidad de backend:
-
-### 1. GitHub Pages
-1. Subí el repositorio a GitHub.
-2. Andá a **Settings** > **Pages**.
-3. En **Source**, seleccioná la rama `main` y la carpeta `/ (root)`.
-4. Guardá. En pocos minutos tu experiencia estará publicada con HTTPS automático.
-
-### 2. Netlify
-1. Arrastrá la carpeta del proyecto directamente al panel de **Netlify Drop** (o conectá tu repositorio).
-2. Dejá el comando de build vacío y el directorio de publicación como `./`.
-3. Netlify asignará un certificado SSL/HTTPS de inmediato.
-
-### 3. Cloudflare Pages
-1. En el panel de Cloudflare, andá a **Workers & Pages** > **Create application** > **Pages**.
-2. Conectá tu repositorio o subí los archivos estáticos.
-3. No requiere Build Command. El Output Directory es la raíz `.`.
-
----
-
-## 🛠️ Tecnologías y Versiones Utilizadas
-
-- **Three.js:** `v0.160.0` (vía ES Modules y CDN jsDelivr).
-- **MindAR Image Tracking:** `v1.2.5` (`mindar-image-three.prod.js`).
-- **ES Module Shims:** `v1.10.0` (para garantizar soporte en versiones anteriores de Safari iOS).
-- **JavaScript Moderno:** Módulos ES nativos (`import` / `export`), `async/await`.
-- **CSS3:** Variables, viewport dinámico, safe-area-insets y animaciones de estado.
-
----
-
-## 🔄 Flujo de Uso
-
-1. El usuario abre la URL (con HTTPS en celular o `localhost` en PC).
-2. Se muestra la **pantalla inicial** con la descripción, instrucción y el botón grande **"INICIAR EXPERIENCIA"** (la cámara permanece apagada).
-3. Al pulsar el botón, el navegador solicita el permiso de cámara.
-4. MindAR se inicializa y muestra el indicador **"Buscando imagen..."**.
-5. Al enfocar la imagen de referencia, el indicador cambia a **"Imagen detectada"** y aparece un **cubo 3D** flotando y rotando suavemente sobre el target.
-6. Si la imagen sale del cuadro, el cubo desaparece y el indicador vuelve a **"Buscando imagen..."**.
-7. Al pulsar **"DETENER CÁMARA"**, se liberan los recursos de video y tracking, y se regresa a la pantalla inicial limpiamente.
+1. Hacé doble clic en `iniciar.bat`.
+2. Presioná `Y` para iniciar el servidor local en `http://localhost:8000`.
+3. Para pruebas móviles en la misma red local mediante un túnel HTTPS rápido:
+   ```bash
+   npx cloudflared tunnel --url http://localhost:8000
+   ```

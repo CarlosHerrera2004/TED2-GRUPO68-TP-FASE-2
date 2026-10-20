@@ -10,7 +10,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   
-  <link rel="stylesheet" href="./css/style.css?v=2">
+  <link rel="stylesheet" href="./css/style.css?v=pantalla_inicio_v1">
 
   <!-- Polyfill para compatibilidad con Import Maps en versiones anteriores de Safari en iOS -->
   <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
@@ -26,27 +26,36 @@
   }
   </script>
 
-  <!-- Módulo principal de la aplicación (con parámetro para evitar caché) -->
-  <script type="module" src="./js/app.js?v=colores_v3"></script>
+  <!-- Módulo principal de la aplicación -->
+  <script type="module" src="./js/app.js?v=pantalla_inicio_v1"></script>
 </head>
 <body>
 
   <!-- Contenedor principal donde MindAR inserta el feed de video y el canvas WebGL -->
   <div id="ar-container"></div>
 
-  <!-- Pantalla inicial previa a la activación de la cámara -->
+  <!-- Pantalla inicial previa a la activación de la cámara con fondo temático -->
   <div id="welcome-screen" class="welcome-screen">
-    <div class="welcome-card">
-      <div class="icon-container">
-        <svg class="ar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+    <!-- Barra superior con botón rectangular hacia el sitio web principal -->
+    <header class="top-nav-bar">
+      <a href="https://mgalibnz.wixstudio.com/ted-2-grupo68" class="btn-top-back" id="btn-top-back" target="_blank" rel="noopener noreferrer">
+        <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
-      </div>
-      <h1 class="title">WebAR Test</h1>
-      <p class="description">Esta experiencia utiliza la cámara de tu dispositivo para proyectar contenido en Realidad Aumentada sin necesidad de instalar aplicaciones.</p>
+        <span>Volver al inicio</span>
+      </a>
+    </header>
+
+    <!-- Tarjeta central de presentación de la experiencia -->
+    <div class="welcome-card">
+      <h1 class="main-title">EXPERIENCIA DE REALIDAD AUMENTADA</h1>
+      <h2 class="sub-title">Muestra de Micro-Racismos</h2>
+
+      <p class="description">Esta experiencia utiliza la cámara de tu dispositivo para proyectar la experiencia interactiva sobre el desplegable físico.</p>
       
       <div class="instruction-box">
-        <p class="instruction-text">Apuntá la cámara hacia la imagen</p>
+        <p class="instruction-text">Apuntá la cámara hacia la imagen del desplegable</p>
       </div>
 
       <button id="btn-start" class="btn-start">INICIAR EXPERIENCIA</button>
@@ -54,17 +63,20 @@
       <!-- Mensaje de error (oculto por defecto) -->
       <div id="error-message" class="error-box hidden" role="alert"></div>
     </div>
+
+    <!-- Espaciador inferior para balance visual -->
+    <div class="bottom-spacer"></div>
   </div>
 
   <!-- Capa de interfaz superpuesta durante la experiencia AR -->
   <div id="ar-ui" class="ar-ui hidden">
-    <!-- Indicador de estado discreto -->
+    <!-- Indicador de tracking discreto (solo avisa si la imagen está detectada o buscándose) -->
     <div id="status-indicator" class="status-indicator searching">
       <span class="status-dot"></span>
       <span id="status-text">Buscando imagen...</span>
     </div>
 
-    <!-- Botón para detener la cámara y regresar a la pantalla inicial -->
+    <!-- Botón rectangular para regresar / detener cámara -->
     <button id="btn-stop" class="btn-stop" aria-label="Detener cámara">DETENER CÁMARA</button>
   </div>
 

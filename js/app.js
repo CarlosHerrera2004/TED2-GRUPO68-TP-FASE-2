@@ -70,21 +70,31 @@ const init = () => {
 
 /**
  * Prepara los materiales de un modelo para soportar transiciones suaves de opacidad
+ * y optimiza el brillo y viveza de los textos 3D sobre la cámara en celular.
  */
-const prepareTransparency = (rootObject) => {
+const prepareTransparency = (rootObject, isText = false) => {
   rootObject.traverse((child) => {
     if (child.isMesh && child.material) {
+      const configureMat = (m) => {
+        const mat = m.clone();
+        mat.transparent = true;
+        mat.depthWrite = true;
+
+        if (isText && (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial)) {
+          mat.roughness = 0.25;
+          mat.metalness = 0.05;
+          if (mat.color) {
+            // Emissive suave al 25% del color base para que resalte nítido sobre el mundo real
+            mat.emissive = mat.color.clone().multiplyScalar(0.25);
+          }
+        }
+        return mat;
+      };
+
       if (Array.isArray(child.material)) {
-        child.material = child.material.map((m) => {
-          const mat = m.clone();
-          mat.transparent = true;
-          mat.depthWrite = true;
-          return mat;
-        });
+        child.material = child.material.map(configureMat);
       } else {
-        child.material = child.material.clone();
-        child.material.transparent = true;
-        child.material.depthWrite = true;
+        child.material = configureMat(child.material);
       }
     }
   });
@@ -173,7 +183,7 @@ const sleep = (ms, token) => {
 /**
  * Carga individual de un archivo GLB con configuración de mixer y animaciones
  */
-const loadGLB = (path, scale, position, rotation = [0, 0, 0]) => {
+const loadGLB = (path, scale, position, rotation = [0, 0, 0], isText = false) => {
   return new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
     const url = `${path}?t=${Date.now()}`;
@@ -186,7 +196,7 @@ const loadGLB = (path, scale, position, rotation = [0, 0, 0]) => {
         scene.position.set(...position);
         scene.rotation.set(...rotation);
 
-        prepareTransparency(scene);
+        prepareTransparency(scene, isText);
 
         const mixer = new THREE.AnimationMixer(scene);
         const actions = [];
@@ -225,10 +235,10 @@ const loadAllModels = async () => {
   const textPos = [0, 0, 0.1];
 
   const [pData, w1Data, w2Data, w3Data] = await Promise.all([
-    loadGLB(PUERTA_PATH, PUERTA_SCALE, puertaPos),
-    loadGLB(PALABRAS1_PATH, TEXT_SCALE, textPos),
-    loadGLB(PALABRAS2_PATH, TEXT_SCALE, textPos),
-    loadGLB(PALABRAS3_PATH, TEXT_SCALE, textPos)
+    loadGLB(PUERTA_PATH, PUERTA_SCALE, puertaPos, [0, 0, 0], false),
+    loadGLB(PALABRAS1_PATH, TEXT_SCALE, textPos, [0, 0, 0], true),
+    loadGLB(PALABRAS2_PATH, TEXT_SCALE, textPos, [0, 0, 0], true),
+    loadGLB(PALABRAS3_PATH, TEXT_SCALE, textPos, [0, 0, 0], true)
   ]);
 
   puertaData = pData;
@@ -248,27 +258,32 @@ const loadAllModels = async () => {
  * Configuración de iluminación para la escena Three.js
  */
 const createScene = (scene) => {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
   scene.add(ambientLight);
 
   const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
   directionalLight.position.set(1.5, 2.0, 3.0);
   scene.add(directionalLight);
 
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
   fillLight.position.set(-1.5, -1.0, 2.0);
   scene.add(fillLight);
+
+  // Luz frontal directa para que los textos resalten al máximo
+  const frontLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  frontLight.position.set(0, 0, 4);
+  scene.add(frontLight);
 };
 
 /**
- * Muestra el estado del tracking de imagen en el indicador visual
+ * Muestra el estado exclusivo del tracking de imagen en el indicador visual
  */
 const showStatus = (text) => {
   if (statusText) {
     statusText.textContent = text;
   }
   if (statusIndicator) {
-    if (text.includes("detectada") || text.includes("Parte")) {
+    if (text.includes("detectada")) {
       statusIndicator.classList.add("detected");
       statusIndicator.classList.remove("searching");
     } else {
@@ -368,7 +383,6 @@ const startExperienceSequence = async () => {
     // PARTE 1: Experiencia de la Puerta 3D
     // ----------------------------------------------------
     console.log("Iniciando Parte 1: Puerta 3D");
-    showStatus("Parte 1: Puerta 3D");
 
     // Asegurar que las palabras de la parte 2 estén ocultas
     palabras1Data.scene.visible = false;
@@ -398,7 +412,6 @@ const startExperienceSequence = async () => {
     // PARTE 2: Secuencia de Palabras 3D
     // ----------------------------------------------------
     console.log("Iniciando Parte 2: Palabras 1");
-    showStatus("Parte 2: Palabras");
 
     // --- PALABRAS 1 ---
     activeMixers.add(palabras1Data.mixer);
@@ -447,7 +460,12 @@ const startExperienceSequence = async () => {
     await sleep(8800, token);
 
     console.log("Experiencia WebAR concluida exitosamente");
-    showStatus("Experiencia completada");
+
+    // Al finalizar la experiencia: transformar el botón para indicar al usuario volver a la pantalla de bienvenida
+    if (btnStop) {
+      btnStop.textContent = "VOLVER HACIA ATRÁS";
+      btnStop.classList.add("finished");
+    }
   } catch (err) {
     if (err.message !== 'SequenceCancelled') {
       console.error("Error durante la secuencia:", err);
@@ -536,6 +554,10 @@ const startAR = async () => {
 
     welcomeScreen.classList.add('hidden');
     arUI.classList.remove('hidden');
+    if (btnStop) {
+      btnStop.textContent = "DETENER CÁMARA";
+      btnStop.classList.remove("finished");
+    }
     showStatus("Buscando imagen...");
 
     console.log("AR iniciado");
@@ -613,6 +635,11 @@ const stopAR = () => {
     welcomeScreen.classList.remove('hidden');
     btnStart.disabled = false;
     btnStart.textContent = "INICIAR EXPERIENCIA";
+
+    if (btnStop) {
+      btnStop.textContent = "DETENER CÁMARA";
+      btnStop.classList.remove("finished");
+    }
 
     console.log("AR detenido");
   }
