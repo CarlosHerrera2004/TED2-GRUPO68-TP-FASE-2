@@ -20,7 +20,8 @@ const TEXT_SCALE = 0.04;
 // Estado Global de la Aplicación
 // ==========================================================================
 let mindarThree = null;
-let anchor = null;
+let anchors = [];
+let experienceGroup = null;
 let clock = new THREE.Clock();
 let isARRunning = false;
 let isStarting = false;
@@ -474,7 +475,7 @@ const startExperienceSequence = async () => {
 };
 
 /**
- * Configuración de la instancia de MindARThree, anchor y eventos de detección
+ * Configuración de la instancia de MindARThree, anclajes múltiples (Targets) y eventos de detección
  */
 const setupAR = (targetSrc) => {
   mindarThree = new MindARThree({
@@ -487,28 +488,58 @@ const setupAR = (targetSrc) => {
 
   createScene(mindarThree.scene);
 
-  anchor = mindarThree.addAnchor(0);
+  // Contenedor unificado para que la misma experiencia se ancle a cualquiera de los dos targets
+  experienceGroup = new THREE.Group();
+  if (puertaData) experienceGroup.add(puertaData.scene);
+  if (palabras1Data) experienceGroup.add(palabras1Data.scene);
+  if (palabras2Data) experienceGroup.add(palabras2Data.scene);
+  if (palabras3Data) experienceGroup.add(palabras3Data.scene);
 
-  // Adjuntar todos los modelos al grupo del anchor
-  if (puertaData) anchor.group.add(puertaData.scene);
-  if (palabras1Data) anchor.group.add(palabras1Data.scene);
-  if (palabras2Data) anchor.group.add(palabras2Data.scene);
-  if (palabras3Data) anchor.group.add(palabras3Data.scene);
+  anchors = [];
 
-  anchor.onTargetFound = () => {
-    console.log("Target encontrado");
+  const handleTargetFound = (targetAnchor) => {
+    console.log("Target detectado, anclando experiencia compartida");
+    // Mudar la experiencia 3D al anchor actualmente enfocado por la cámara
+    if (experienceGroup.parent !== targetAnchor.group) {
+      targetAnchor.group.add(experienceGroup);
+    }
+    experienceGroup.visible = true;
     showStatus("Imagen detectada");
 
-    // Iniciar la secuencia de la experiencia si no estaba corriendo
+    // Iniciar la secuencia interactiva si no estaba corriendo
     if (!sequenceStarted) {
       startExperienceSequence();
     }
   };
 
-  anchor.onTargetLost = () => {
-    console.log("Target perdido");
-    showStatus("Buscando imagen...");
+  const handleTargetLost = () => {
+    // Si ningún anchor sigue visible, reportar búsqueda de imagen
+    const isAnyVisible = anchors.some((a) => a && a.group && a.group.visible);
+    if (!isAnyVisible) {
+      console.log("Todos los targets fuera de foco");
+      showStatus("Buscando imagen...");
+    }
   };
+
+  // Registrar Target 0 (Grupo 1 de caras)
+  try {
+    const a0 = mindarThree.addAnchor(0);
+    a0.onTargetFound = () => handleTargetFound(a0);
+    a0.onTargetLost = handleTargetLost;
+    anchors.push(a0);
+  } catch (err) {
+    console.warn("Aviso al inicializar Target 0:", err);
+  }
+
+  // Registrar Target 1 (Grupo 2 de caras)
+  try {
+    const a1 = mindarThree.addAnchor(1);
+    a1.onTargetFound = () => handleTargetFound(a1);
+    a1.onTargetLost = handleTargetLost;
+    anchors.push(a1);
+  } catch (err) {
+    console.log("Target 1 no detectado en el archivo .mind (solo Target 0 activo):", err);
+  }
 };
 
 /**
@@ -627,8 +658,14 @@ const stopAR = () => {
     isARRunning = false;
     isStarting = false;
 
-    if (anchor && anchor.group) {
-      anchor.group.visible = false;
+    anchors.forEach((a) => {
+      if (a && a.group) {
+        a.group.visible = false;
+      }
+    });
+
+    if (experienceGroup) {
+      experienceGroup.visible = false;
     }
 
     arUI.classList.add('hidden');

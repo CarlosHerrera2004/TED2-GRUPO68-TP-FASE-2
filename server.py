@@ -10,6 +10,29 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Expires', '0')
         super().end_headers()
 
+    def do_POST(self):
+        if self.path == '/save-mind':
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                data = self.rfile.read(length)
+                with open('targets/targets.mind', 'wb') as f:
+                    f.write(data)
+                with open('targets/target.mind', 'wb') as f:
+                    f.write(data)
+                with open('targets.mind', 'wb') as f:
+                    f.write(data)
+                with open('target.mind', 'wb') as f:
+                    f.write(data)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'OK')
+                print(f"[OK] Archivo targets.mind actualizado exitosamente ({len(data)} bytes)")
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+        self.send_error(404)
+
     def guess_type(self, path):
         if path.endswith('.mind'):
             return 'application/octet-stream'
