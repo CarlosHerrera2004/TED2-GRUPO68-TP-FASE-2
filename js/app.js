@@ -343,13 +343,15 @@ const handleError = (error) => {
 
 /**
  * Resuelve y valida automáticamente la ruta existente del archivo .mind
+ * con parámetro anticaché obligatorio para que el celular descargue los targets actualizados.
  */
 const resolveTargetSrc = async () => {
+  const timestamp = Date.now();
   const candidatePaths = [
-    './targets/targets.mind',
-    './targets/target.mind',
-    './targets.mind',
-    './target.mind'
+    `./targets/targets.mind?t=${timestamp}`,
+    `./targets/target.mind?t=${timestamp}`,
+    `./targets.mind?t=${timestamp}`,
+    `./target.mind?t=${timestamp}`
   ];
 
   for (const path of candidatePaths) {
@@ -369,7 +371,7 @@ const resolveTargetSrc = async () => {
     } catch (_) {}
   }
 
-  return './targets/targets.mind';
+  return `./targets/targets.mind?t=${timestamp}`;
 };
 
 /**
@@ -481,9 +483,14 @@ const setupAR = (targetSrc) => {
   mindarThree = new MindARThree({
     container: arContainer,
     imageTargetSrc: targetSrc,
+    maxTrack: 2, // Permite detectar y rastrear ambos grupos de caras simultáneamente
     uiLoading: 'no',
     uiScanning: 'no',
-    uiError: 'no'
+    uiError: 'no',
+    filterMinCF: 0.0001,
+    filterBeta: 0.001,
+    warmupTolerance: 2, // Detección rápida de los targets
+    missTolerance: 5
   });
 
   createScene(mindarThree.scene);
@@ -496,15 +503,22 @@ const setupAR = (targetSrc) => {
   if (palabras3Data) experienceGroup.add(palabras3Data.scene);
 
   anchors = [];
+  let activeAnchor = null;
 
-  const handleTargetFound = (targetAnchor) => {
-    console.log("Target detectado, anclando experiencia compartida");
-    // Mudar la experiencia 3D al anchor actualmente enfocado por la cámara
+  const handleTargetFound = (targetAnchor, targetIndex) => {
+    console.log(`[AR] Target ${targetIndex} (Grupo ${targetIndex + 1}) detectado`);
+
+    // Si ya estamos anclados a un target visible, no transferir bruscamente
+    if (activeAnchor && activeAnchor.visible && activeAnchor !== targetAnchor) {
+      return;
+    }
+
+    activeAnchor = targetAnchor;
     if (experienceGroup.parent !== targetAnchor.group) {
       targetAnchor.group.add(experienceGroup);
     }
     experienceGroup.visible = true;
-    showStatus("Imagen detectada");
+    showStatus(`Imagen detectada (Grupo ${targetIndex + 1})`);
 
     // Iniciar la secuencia interactiva si no estaba corriendo
     if (!sequenceStarted) {
@@ -512,9 +526,24 @@ const setupAR = (targetSrc) => {
     }
   };
 
-  const handleTargetLost = () => {
+  const handleTargetLost = (targetAnchor, targetIndex) => {
+    console.log(`[AR] Target ${targetIndex} (Grupo ${targetIndex + 1}) fuera de foco`);
+
+    if (activeAnchor === targetAnchor) {
+      // Si el otro target está actualmente visible, transferir suavemente el anclaje
+      const otherAnchor = anchors.find((a) => a && a !== targetAnchor && a.visible);
+      if (otherAnchor) {
+        activeAnchor = otherAnchor;
+        otherAnchor.group.add(experienceGroup);
+        const otherIndex = otherAnchor.targetIndex;
+        showStatus(`Imagen detectada (Grupo ${otherIndex + 1})`);
+        return;
+      }
+      activeAnchor = null;
+    }
+
     // Si ningún anchor sigue visible, reportar búsqueda de imagen
-    const isAnyVisible = anchors.some((a) => a && a.group && a.group.visible);
+    const isAnyVisible = anchors.some((a) => a && a.visible);
     if (!isAnyVisible) {
       console.log("Todos los targets fuera de foco");
       showStatus("Buscando imagen...");
@@ -524,9 +553,10 @@ const setupAR = (targetSrc) => {
   // Registrar Target 0 (Grupo 1 de caras)
   try {
     const a0 = mindarThree.addAnchor(0);
-    a0.onTargetFound = () => handleTargetFound(a0);
-    a0.onTargetLost = handleTargetLost;
+    a0.onTargetFound = () => handleTargetFound(a0, 0);
+    a0.onTargetLost = () => handleTargetLost(a0, 0);
     anchors.push(a0);
+    console.log("Anchor para Target 0 (Grupo 1) registrado correctamente");
   } catch (err) {
     console.warn("Aviso al inicializar Target 0:", err);
   }
@@ -534,11 +564,12 @@ const setupAR = (targetSrc) => {
   // Registrar Target 1 (Grupo 2 de caras)
   try {
     const a1 = mindarThree.addAnchor(1);
-    a1.onTargetFound = () => handleTargetFound(a1);
-    a1.onTargetLost = handleTargetLost;
+    a1.onTargetFound = () => handleTargetFound(a1, 1);
+    a1.onTargetLost = () => handleTargetLost(a1, 1);
     anchors.push(a1);
+    console.log("Anchor para Target 1 (Grupo 2) registrado correctamente");
   } catch (err) {
-    console.log("Target 1 no detectado en el archivo .mind (solo Target 0 activo):", err);
+    console.warn("Aviso al inicializar Target 1:", err);
   }
 };
 
@@ -564,9 +595,16 @@ const startAR = async () => {
       throw new Error(`TargetNotFound: No se pudo cargar el archivo target desde ${targetSrc}`);
     }
 
-    if (!mindarThree) {
-      setupAR(targetSrc);
+    if (mindarThree) {
+      try {
+        mindarThree.renderer?.setAnimationLoop(null);
+        mindarThree.stop();
+      } catch (_) {}
+      mindarThree = null;
     }
+    arContainer.innerHTML = '';
+
+    setupAR(targetSrc);
 
     await mindarThree.start();
 
@@ -625,7 +663,9 @@ const stopAR = () => {
       mindarThree.renderer?.setAnimationLoop(null);
       mindarThree.stop();
       mindarThree.renderer?.clear();
+      mindarThree = null;
     }
+    arContainer.innerHTML = '';
 
     // Detener todas las animaciones y vaciar mixers activos
     activeMixers.forEach((m) => m.stopAllAction());
