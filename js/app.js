@@ -84,8 +84,8 @@ const prepareTransparency = (rootObject, isText = false) => {
         if (isText && (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial)) {
           mat.roughness = 0.25;
           mat.metalness = 0.05;
-          if (mat.color) {
-            // Emissive suave al 25% del color base para que resalte nítido sobre el mundo real
+          if (mat.color && !mat.map) {
+            // Emissive suave al 25% del color base para que resalte nítido sobre el mundo real (solo mallas sin mapa de textura)
             mat.emissive = mat.color.clone().multiplyScalar(0.25);
           }
         }
