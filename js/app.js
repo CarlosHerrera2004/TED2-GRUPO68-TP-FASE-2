@@ -60,6 +60,16 @@ const init = () => {
   errorMessage = document.querySelector('#error-message');
   arContainer = document.querySelector('#ar-container');
 
+  const btnTopBack = document.querySelector('#btn-top-back');
+  if (btnTopBack) {
+    btnTopBack.removeAttribute('target');
+    btnTopBack.setAttribute('target', '_self');
+    btnTopBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = btnTopBack.href;
+    });
+  }
+
   btnStart.addEventListener('click', startAR);
   btnStop.addEventListener('click', stopAR);
 
